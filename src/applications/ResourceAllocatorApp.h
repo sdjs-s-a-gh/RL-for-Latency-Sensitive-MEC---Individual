@@ -34,9 +34,8 @@ namespace py = pybind11;
  */
 struct Task : public cObject
 {
-    double requiredCPUCycles; // The number of CPU cycles required to process/compute a task.
-    int deadlineLatency;
-    double allocatedCPUFrequency; // The number of CPU cycles that will be processed in a single second - the speed of processing the task.
+    int requiredCPUCycles; // The number of CPU cycles required to process/compute a task.
+    int allocatedCPUFrequency; // The number of CPU cycles that will be processed in a single second - the speed of processing the task.
     double executionTime; // The time it will take for the task to be processed on the edge server. This variable is to be used for calculating when a self-message should be scheduled.
 
 
@@ -69,8 +68,8 @@ class ResourceAllocatorApp : public ApplicationBase, UdpSocket::ICallback
 {
   protected:
     // Resource Allocation
-    double maxCPUCapacity = 10000; // in MHz currently
-    double currentCapacity = 0;
+    int64_t maxCPUCapacity = 10000; // in MHz currently
+    int64_t currentCapacity = 0;
     cQueue queue;
     int resourceAllocatorAlgorithm = 0;
 
@@ -87,18 +86,21 @@ class ResourceAllocatorApp : public ApplicationBase, UdpSocket::ICallback
     std::string destAddressStr;
     int destPort = -1;
 
+    int maxQueueLength = 50;
+
     // Statistics
     int packetsReceived = 0;
     int tasksProcessed = 0;
     int tasksProcessing = 0;
-    int maxQueueLength = 0;
+    int cloudOffloadedTasks = 0;
 
     simsignal_t latencySignal;
     simsignal_t resourceUtilisationSignal;
     simsignal_t energyConsumptionSignal;
     simsignal_t tasksProcessedSignal;
-    simsignal_t maxQueueLengthSignal;
+    simsignal_t queueLengthSignal;
     simsignal_t parallelTasksSignal;
+    simsignal_t cloudOffloadedTasksSignal;
 
     UdpSocket socket; // Requires a socket to bind the application to.
 

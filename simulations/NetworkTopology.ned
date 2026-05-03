@@ -19,6 +19,8 @@ package myprojectandtutorial.simulations;
 import myprojectandtutorial.devices.EdgeServer;
 import myprojectandtutorial.devices.MobilePhone;
 import myprojectandtutorial.devices.AutonomousVehicle;
+import myprojectandtutorial.devices.ARVRUser;
+import myprojectandtutorial.devices.IoTDevice;
 import myprojectandtutorial.devices.CloudServer;
 
 // Wireless Connections
@@ -39,8 +41,10 @@ network ResourceNetwork
 {
     parameters:
         @display("bgb=1000,1000");
-        int numberOfMobilePhones = default(15);
-        int numberOfAutonomousVehicles = default(10);
+        int numberOfMobilePhones = default(10);
+        int numberOfAutonomousVehicles = default(7);
+        int numberOfIoTDevices = default(5);
+        int numberOfARVRUsers = default(3);
 
         // Statistics to be gathered during the simulation.
         // Main
@@ -50,8 +54,9 @@ network ResourceNetwork
 
         // Complementary
         @statistic[tasksProcessedOverTime](source=tasksProcessed; record=vector);
-        @statistic[maxQueueLengthOverTime](source=maxQueueLength; record=vector);
+        @statistic[queueLengthOverTime](source=queueLength; record=vector);
         @statistic[parallelTasksOverTime](source=parallelTasks; record=vector);
+        @statistic[cloudOffloadedTasksOverTime](source=cloudOffloadedTasks; record=vector);
 
     submodules:
         visualizer: IntegratedCanvasVisualizer {
@@ -73,11 +78,19 @@ network ResourceNetwork
             @display("p=428,289");
         }
 
-        //hostB: WirelessHost { @display("p=450,195"); }
+        mdARVRUser[numberOfARVRUsers]: ARVRUser {
+            @display("p=110,129");
+        }
+
+        mdIoTDevice[numberOfIoTDevices]: IoTDevice {
+            @display("p=598,195");
+        }
+
 
         // Edge Layer
         baseStation: WirelessHost {
             @display("p=428,546");
+            @display("i=device/antennatower");
         }
         coreRouter: Router {
             @display("p=428,475");

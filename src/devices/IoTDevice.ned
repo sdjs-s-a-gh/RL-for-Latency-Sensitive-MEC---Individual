@@ -13,18 +13,13 @@
 // along with this program.  If not, see http://www.gnu.org/licenses/.
 //
 
-package myprojectandtutorial.applications;
-import inet.applications.udpapp.UdpBasicApp;
+package myprojectandtutorial.devices;
 
-//
-// TODO auto-generated module
-//
-simple TrafficGenerator extends UdpBasicApp
+import inet.node.inet.WirelessHost;
+
+module IoTDevice extends WirelessHost
 {
+    // Doesn't add any new code; just changes the icon to a server
     parameters:
-        double minRequiredCPUCycles @units(Hz) = default (-1);
-        double maxRequiredCPUCycles @units(Hz) = default (-1);
-        @display("i=block/app");
-
-    @class(TrafficGenerator);
+        //@display("i=misc/car3"); // Change the icon to a server
 }

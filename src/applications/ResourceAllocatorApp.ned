@@ -28,7 +28,8 @@ simple ResourceAllocatorApp like IApp
 	    string destAddress;
 	    int destPort;
 	
-	    double maxCPUCapacity;
+	    int maxCPUCapacity = default(10000);
+	    int maxQueueLength = default(50);
 	    int resourceAllocatorAlgorithm;
 	    int episodeLength;
 
@@ -38,6 +39,7 @@ simple ResourceAllocatorApp like IApp
         @signal[tasksProcessed](type=int);
         @signal[maxQueueLength](type=int);
         @signal[parallelTasks](type=int);
+        @signal[cloudOffloadedTasks](type=int);
 	
 	gates:
 	    input socketIn;

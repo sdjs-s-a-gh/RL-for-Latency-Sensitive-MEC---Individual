@@ -16,6 +16,7 @@
 #include "ResourceAllocatorApp.h"
 #include "MyTaskChunk_m.h"
 #include "inet/networklayer/common/L3AddressResolver.h"
+#include <algorithm>
 #include <pybind11/pybind11.h>
 #include <pybind11/embed.h>
 #include <pybind11/stl.h>
@@ -38,15 +39,13 @@ void ResourceAllocatorApp::initialize(int stage)
     // indicates the incoming packet cannot reach the required socket - as the
     // app is yet to be on a socket.
 
-
-    maxCPUCapacity = par("maxCPUCapacity");
+    maxCPUCapacity = par("maxCPUCapacity").intValue(); // Scale from MHz to normal Hz.
     currentCapacity = maxCPUCapacity;
     resourceAllocatorAlgorithm = par("resourceAllocatorAlgorithm");
     episodeLength = par("episodeLength");
+    maxQueueLength = par("maxQueueLength");
 
-
-
-    if (pythonAllocatorStarted == false) {
+    if (resourceAllocatorAlgorithm == 1 && pythonAllocatorStarted == false) {
         try {
             // Check to see if the interpreter is currently running, as it persists between simulation configurations.
             // Originally, this code did not need to exist as the interpreter persisted as a static object, but that caused
@@ -68,7 +67,7 @@ void ResourceAllocatorApp::initialize(int stage)
 
             int stateSpaceDimensions = 5;
             int actionSpaceDimensions = 1;
-            agent = rl_mod.attr("RLResourceAllocator")(stateSpaceDimensions, actionSpaceDimensions);
+            agent = rl_mod.attr("PPO")(stateSpaceDimensions, actionSpaceDimensions);
 
             py::print("Hello from Python inside OMNeT++!");
             pythonAllocatorStarted = true;
@@ -78,17 +77,15 @@ void ResourceAllocatorApp::initialize(int stage)
         }
     }
 
-    //pybind11::scoped_interpreter guard{};
-    //EV << "Python version: " << Py_GetVersion() << endl;
-
     // Setup Statistics
     latencySignal = registerSignal("latency");
     resourceUtilisationSignal = registerSignal("resourceUtilisation");
     energyConsumptionSignal = registerSignal("energyConsumption");
 
     tasksProcessedSignal = registerSignal("tasksProcessed");
-    maxQueueLengthSignal = registerSignal("maxQueueLength");
+    queueLengthSignal = registerSignal("queueLength");
     parallelTasksSignal = registerSignal("parallelTasks");
+    cloudOffloadedTasksSignal = registerSignal("cloudOffloadedTasks");
 
     if (stage == INITSTAGE_APPLICATION_LAYER) {
         localPort = par("localPort");
@@ -109,8 +106,6 @@ void ResourceAllocatorApp::initialize(int stage)
         socket.setCallback(this);
         EV << "EdgeServerResourceAllocatorApp has been successfully set up on Port: " << localPort << endl;
     }
-
-
 }
 
 void ResourceAllocatorApp::handleMessageWhenUp(cMessage *msg)
@@ -153,8 +148,6 @@ void ResourceAllocatorApp::allocateResources(Task *task)
         throw cRuntimeError("You've given an invalid resource allocator algorithm: %d", resourceAllocatorAlgorithm);
     }
 
-    // Would need to get resource utilisation here before allocating resources.
-    // int cpuCyclesToAllocate = task->requiredCPUCycles;
     task->allocatedCPUFrequency = cpuCyclesToAllocate;
     task->executionTime = getTimeToExecute(task->requiredCPUCycles, cpuCyclesToAllocate);
 
@@ -189,12 +182,12 @@ int ResourceAllocatorApp::randomAllocation()
  */
 int ResourceAllocatorApp::PPOAllocation(Task *task)
 {
-    // Get State, which has been normalised to improve learning stability.
-    double requiredCycles = task->requiredCPUCycles / 500.0; // 500 = Max CPU cycles set in ini.
-    double communicationLatency = (task->communicationDelay.dbl() * 1000) / 50; // Convert to milliseconds
-    double queueLength = queue.getLength() / 100.0;
+    // Get State and normalise to improve learning stability. // TODO
+    double requiredCycles = task->requiredCPUCycles / (700.0); // 700 = Max CPU cycles set in ini.
+    double communicationLatency = (task->communicationDelay.dbl() * 1000) / 50.0; // Convert to milliseconds
     double resourceUtilisation = getResourceUtilisation();
-    double totalQueueCycles = getTotalCyclesInQueue() / 5000; // 5000 = Max CPU cycles set in ini * Max Queue Length
+    double queueLength = (double) queue.getLength() / (double) maxQueueLength;
+    double totalQueueCycles = (double) getTotalCyclesInQueue() / (700.0 * (double) maxQueueLength);
 
     std::vector<double>state = {
             requiredCycles,
@@ -207,25 +200,19 @@ int ResourceAllocatorApp::PPOAllocation(Task *task)
     EV << "State: " << requiredCycles << ", " << communicationLatency << ", "
        << resourceUtilisation << ", " << queueLength << ", " << totalQueueCycles << endl;
 
-
     try {
         py::tuple result = agent.attr("get_action")(state);
-
-
         double rawAction = result[0].cast<double>();
         double logProbability = result[1].cast<double>();
-        double action = result[2].cast<double>();
+
+        // Clip/Constrain the action to be between [0.01, 1.0].
+        double action = std::clamp(abs(rawAction), 0.01, 1.0);
 
         EV << "Action: " << action << "; Log Prob: " << logProbability << "; Raw Action: " << rawAction << endl;
 
         int allocatedCPUCycles = action * maxCPUCapacity; // TODO: Will need to round to the nearest int.
 
-//        if (allocatedCPUCycles <=0 or allocatedCPUCycles >= maxCPUCapacity) {
-//            allocatedCPUCycles = 1000;
-//        }
-        // Constrain between the required cycles (minimum useful) and max capacity
-    //        allocatedCPUCycles = std::max((int)task->requiredCPUCycles,
-    //                             std::min(allocatedCPUCycles, (int)maxCPUCapacity));
+        EV << "Max CPU Capacity: " << maxCPUCapacity << endl;
 
         EV << "The RL Agent has decided to allocate " << action << " cycles as a ratio or "<< allocatedCPUCycles << " cycles." << endl;
 
@@ -239,8 +226,6 @@ int ResourceAllocatorApp::PPOAllocation(Task *task)
     } catch (py::error_already_set &e){
         throw cRuntimeError("Python Error: %s", e.what());
     };
-
-
 }
 
 /**
@@ -258,7 +243,7 @@ double ResourceAllocatorApp::getTimeToExecute(double cpuCyclesRequired, double a
  */
 double ResourceAllocatorApp::getResourceUtilisation()
 {
-    return 1.0 - (currentCapacity / maxCPUCapacity);
+    return 1.0 - ((double) currentCapacity / (double) maxCPUCapacity);
 }
 
 /**
@@ -318,29 +303,35 @@ void ResourceAllocatorApp::endTaskExecution(cMessage *msg)
     completedTask->completionTime = simTime();
     completedTask->totalServiceTime = completedTask->completionTime - completedTask->arrivalTime;
     completedTask->latency = completedTask->completionTime - completedTask->creationTime;
-    double energyConsumption = completedTask->allocatedCPUFrequency * (maxCPUCapacity * maxCPUCapacity);
+
+    double k_Scaled = 1e-27 * 1e+18;
+    double energyConsumption = k_Scaled * completedTask->requiredCPUCycles * (completedTask->allocatedCPUFrequency * completedTask->allocatedCPUFrequency);
     completedTask->energyConsumption = energyConsumption;
 
-    double reward = calculateReward(completedTask->latency.dbl() * 1000);
-    std::vector state = completedTask->state;
-    double action = completedTask->rawAction;
-    double logProbability = completedTask->logProbability;
+    if (resourceAllocatorAlgorithm == 1) {
+        std::vector state = completedTask->state;
+        double action = completedTask->rawAction;
+        double logProbability = completedTask->logProbability;
+        double latency = completedTask->latency.dbl() * 1000;
+        double resourceUtilisation = getResourceUtilisation();
 
-    EV << "Reward: " << reward << "; State: "  << "; Action: " << action << "; Log Prob: " << logProbability << endl;
-    // Send the details of the task back to the allocator
-    try {
-        // TODO
-        //reward = calculateReward(state, action, newState);
+        // Get the current queue utilisation to punish for being too big and offloading tasks.
+        // TODO: Create a function to return the queue utilisation considering I already use this when
+        // getting an action from the PPO agent.
+        double queueUtilisation = (double) queue.getLength() / (double) maxQueueLength;
 
-        agent.attr("add_trajectory")(action, logProbability, state, reward);
+        EV << "Latency: " << latency << "; State: "  << "; Action: " << action << "; Log Prob: " << logProbability << endl;
+        EV << "Energy Consumption: " << energyConsumption << endl;
 
-    } catch (py::error_already_set &e){
-        throw cRuntimeError("Python Error: %s", e.what());
+        // Send the details of the trajectory to the PPO agent.
+        try {
+            agent.attr("add_trajectory")(state, action, logProbability, latency, energyConsumption, queueUtilisation);
+
+        } catch (py::error_already_set &e){
+            throw cRuntimeError("Python Error: %s", e.what());
+        }
     }
 
-    // emit(msg->getTotalServiceTime);
-    // totalTime? = communication delay + queue time + computation time?
-    // update to file
     // Free up the CPU of the edge server by giving back the allocated CPU cycles.
     currentCapacity += completedTask->allocatedCPUFrequency;
     tasksProcessing--;
@@ -357,50 +348,15 @@ void ResourceAllocatorApp::endTaskExecution(cMessage *msg)
     EV << "Task CPU Cycles Required: " << completedTask->requiredCPUCycles << "; Expected Execution Time: " << getTimeToExecute(completedTask->requiredCPUCycles, completedTask->requiredCPUCycles)
             << "; Actual Cycles Given: " << completedTask->allocatedCPUFrequency << "; Actual Execution Time: " << getTimeToExecute(completedTask->requiredCPUCycles,completedTask->allocatedCPUFrequency) << endl;
 
-    double latency = completedTask->latency.dbl() * 1000; // convert to milliseconds.
-    emit(latencySignal,latency);
+    emit(latencySignal,completedTask->latency * 1000);
     emit(energyConsumptionSignal, energyConsumption);
     emit(tasksProcessedSignal, tasksProcessed);
     emit(parallelTasksSignal, tasksProcessing);
-    //delete completedTask;
 
     if (tasksProcessed >= episodeLength) {
         // End the Simulation
         endSimulation();
     }
-}
-
-double ResourceAllocatorApp::calculateReward(double latency)
-{
-    // Average System Task Latency, Average System Task Energy Consumption, Resource Utilisation
-    // Maybe just latency, energy consumption and resource utilisation
-
-    //TODO: normalise the rewards
-
-    // utilisation is fine as it is already between 0 and 1
-    //double normalisedLatency = latency / 5000; // 500 is just a random worst case; I've completely made it up.
-    // energy consumption = energy / max energy?
-
-//    latencyWeight = 0.4;
-//    energyConsumptionWeight = 0.2;
-//    resourceUtilisationWeight = 0.2;
-//
-//    double reward = (
-//            -latencyWeight * latency
-//            -energyConsumptionWeight * energyConsumption
-//            + resourceUtilisationWeight * resourceUtilisation
-//          );
-
-    // just do latency at the minute
-    double baseline = 1000.0; // static allocator average
-    double reward = (baseline - latency) / baseline;
-
-    return reward;
-    //return std::max(-1.0, std::min(1.0, reward)); // clip to [-1, 1]
-//    double reward = -normalisedLatency;
-//
-//    return reward;
-
 }
 
 /**
@@ -425,12 +381,9 @@ void ResourceAllocatorApp::updateQueue()
             queue.pop();
             }
         EV << "The length of the queue is: " << queue.getLength() << endl;
-        emit(maxQueueLengthSignal, maxQueueLength);
+        emit(queueLengthSignal, queue.getLength());
         EV << "Resource Utilisation: " << getResourceUtilisation() << endl;
         emit(resourceUtilisationSignal, getResourceUtilisation());
-        if (queue.getLength() > maxQueueLength) {
-            maxQueueLength = queue.getLength();
-        }
     }
 
 }
@@ -449,9 +402,8 @@ void ResourceAllocatorApp::socketDataArrived(UdpSocket *socket, Packet *packet)
 
     auto taskRequirements =  packet->peekAtFront<MyTaskChunk>();
     auto cpuCycles = taskRequirements->getRequiredCPUCycles();
-    auto deadlineLatency = taskRequirements->getDeadlineLatency();
 
-    EV << "That was Packet " << packetsReceived << ". Required CPU Cycles: " << cpuCycles << "; Deadline Latency: " << deadlineLatency << endl;
+    EV << "That was Packet " << packetsReceived << ". Required CPU Cycles: " << cpuCycles << endl;
 
     // TODO:
     // If the queue is over 50 tasks long, delete/drop the incoming task.
@@ -493,7 +445,8 @@ void ResourceAllocatorApp::sendPacket(Packet *packet)
     packet->clearTags();
     socket.sendTo(packet, destAddress, destPort);
 
-    // TODO: tasks offloaded ++;
+    cloudOffloadedTasks++;
+    emit(cloudOffloadedTasksSignal,cloudOffloadedTasks);
 }
 
 void ResourceAllocatorApp::refreshDisplay() const
@@ -537,26 +490,32 @@ void ResourceAllocatorApp::handleCrashOperation(LifecycleOperation *operation)
 
 void ResourceAllocatorApp::finish()
 {
+    // TODO: Tidy this subroutine up.
     EV << "Tasks Processed: "<< tasksProcessed << endl;
-    if (tasksProcessed == episodeLength && resourceAllocatorAlgorithm == 1) {
-        try {
-            // Tell the Resource Allocator to update as the episode has ended.
-            agent.attr("update_and_save")();
 
-            // Flush the print statements out since they don't carry over here automatically anymore.
-            py::exec("import sys; sys.stdout.flush(); sys.stderr.flush()");
+    if (tasksProcessed == episodeLength) {
+        if (resourceAllocatorAlgorithm == 1) {
+            try {
+                // Flush the print statements out since they don't carry over here automatically anymore.
+                py::exec("import sys; sys.stdout.flush(); sys.stderr.flush()");
 
+                 // Tell the Resource Allocator to update as the episode has ended.
+                //agent.attr("update_and_save")();
 
-            EV << "The agent should have saved by now." << endl;
+                EV << "The agent should have saved by now." << endl;
 
-        } catch (py::error_already_set &e){
-            throw cRuntimeError("Python Error: %s", e.what());
+             } catch (py::error_already_set &e){
+                 throw cRuntimeError("Python Error: %s", e.what());
+             }
+             EV << "The Simulation has finished gracefully." << endl;
         }
-
-        EV << "The Simulation has finished gracefully." << endl;
+        else {
+            EV << "The Simulation has finished gracefully." << endl;
+        }
     } else {
         EV << "The Simulation has finished prematurely." << endl;
     }
+
     agent = py::none();
     cSimpleModule::finish();
 }

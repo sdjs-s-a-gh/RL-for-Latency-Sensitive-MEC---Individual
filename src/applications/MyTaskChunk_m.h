@@ -38,8 +38,6 @@ namespace inet {
  * class MyTaskChunk extends FieldsChunk
  * {
  *     int RequiredCPUCycles;
- *     double DeadlineLatency;
- * 
  *     simtime_t creationTime;
  * 
  * }
@@ -49,7 +47,6 @@ class MyTaskChunk : public ::inet::FieldsChunk
 {
   protected:
     int RequiredCPUCycles = 0;
-    double DeadlineLatency = 0;
     ::omnetpp::simtime_t creationTime = SIMTIME_ZERO;
 
   private:
@@ -69,9 +66,6 @@ class MyTaskChunk : public ::inet::FieldsChunk
 
     virtual int getRequiredCPUCycles() const;
     virtual void setRequiredCPUCycles(int RequiredCPUCycles);
-
-    virtual double getDeadlineLatency() const;
-    virtual void setDeadlineLatency(double DeadlineLatency);
 
     virtual ::omnetpp::simtime_t getCreationTime() const;
     virtual void setCreationTime(::omnetpp::simtime_t creationTime);

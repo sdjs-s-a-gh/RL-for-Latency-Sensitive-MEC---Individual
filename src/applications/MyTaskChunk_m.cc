@@ -178,7 +178,6 @@ MyTaskChunk& MyTaskChunk::operator=(const MyTaskChunk& other)
 void MyTaskChunk::copy(const MyTaskChunk& other)
 {
     this->RequiredCPUCycles = other.RequiredCPUCycles;
-    this->DeadlineLatency = other.DeadlineLatency;
     this->creationTime = other.creationTime;
 }
 
@@ -186,7 +185,6 @@ void MyTaskChunk::parsimPack(omnetpp::cCommBuffer *b) const
 {
     ::inet::FieldsChunk::parsimPack(b);
     doParsimPacking(b,this->RequiredCPUCycles);
-    doParsimPacking(b,this->DeadlineLatency);
     doParsimPacking(b,this->creationTime);
 }
 
@@ -194,7 +192,6 @@ void MyTaskChunk::parsimUnpack(omnetpp::cCommBuffer *b)
 {
     ::inet::FieldsChunk::parsimUnpack(b);
     doParsimUnpacking(b,this->RequiredCPUCycles);
-    doParsimUnpacking(b,this->DeadlineLatency);
     doParsimUnpacking(b,this->creationTime);
 }
 
@@ -207,17 +204,6 @@ void MyTaskChunk::setRequiredCPUCycles(int RequiredCPUCycles)
 {
     handleChange();
     this->RequiredCPUCycles = RequiredCPUCycles;
-}
-
-double MyTaskChunk::getDeadlineLatency() const
-{
-    return this->DeadlineLatency;
-}
-
-void MyTaskChunk::setDeadlineLatency(double DeadlineLatency)
-{
-    handleChange();
-    this->DeadlineLatency = DeadlineLatency;
 }
 
 ::omnetpp::simtime_t MyTaskChunk::getCreationTime() const
@@ -237,7 +223,6 @@ class MyTaskChunkDescriptor : public omnetpp::cClassDescriptor
     mutable const char **propertyNames;
     enum FieldConstants {
         FIELD_RequiredCPUCycles,
-        FIELD_DeadlineLatency,
         FIELD_creationTime,
     };
   public:
@@ -305,7 +290,7 @@ const char *MyTaskChunkDescriptor::getProperty(const char *propertyName) const
 int MyTaskChunkDescriptor::getFieldCount() const
 {
     omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
-    return base ? 3+base->getFieldCount() : 3;
+    return base ? 2+base->getFieldCount() : 2;
 }
 
 unsigned int MyTaskChunkDescriptor::getFieldTypeFlags(int field) const
@@ -318,10 +303,9 @@ unsigned int MyTaskChunkDescriptor::getFieldTypeFlags(int field) const
     }
     static unsigned int fieldTypeFlags[] = {
         FD_ISEDITABLE,    // FIELD_RequiredCPUCycles
-        FD_ISEDITABLE,    // FIELD_DeadlineLatency
         FD_ISEDITABLE,    // FIELD_creationTime
     };
-    return (field >= 0 && field < 3) ? fieldTypeFlags[field] : 0;
+    return (field >= 0 && field < 2) ? fieldTypeFlags[field] : 0;
 }
 
 const char *MyTaskChunkDescriptor::getFieldName(int field) const
@@ -334,10 +318,9 @@ const char *MyTaskChunkDescriptor::getFieldName(int field) const
     }
     static const char *fieldNames[] = {
         "RequiredCPUCycles",
-        "DeadlineLatency",
         "creationTime",
     };
-    return (field >= 0 && field < 3) ? fieldNames[field] : nullptr;
+    return (field >= 0 && field < 2) ? fieldNames[field] : nullptr;
 }
 
 int MyTaskChunkDescriptor::findField(const char *fieldName) const
@@ -345,8 +328,7 @@ int MyTaskChunkDescriptor::findField(const char *fieldName) const
     omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
     int baseIndex = base ? base->getFieldCount() : 0;
     if (strcmp(fieldName, "RequiredCPUCycles") == 0) return baseIndex + 0;
-    if (strcmp(fieldName, "DeadlineLatency") == 0) return baseIndex + 1;
-    if (strcmp(fieldName, "creationTime") == 0) return baseIndex + 2;
+    if (strcmp(fieldName, "creationTime") == 0) return baseIndex + 1;
     return base ? base->findField(fieldName) : -1;
 }
 
@@ -360,10 +342,9 @@ const char *MyTaskChunkDescriptor::getFieldTypeString(int field) const
     }
     static const char *fieldTypeStrings[] = {
         "int",    // FIELD_RequiredCPUCycles
-        "double",    // FIELD_DeadlineLatency
         "omnetpp::simtime_t",    // FIELD_creationTime
     };
-    return (field >= 0 && field < 3) ? fieldTypeStrings[field] : nullptr;
+    return (field >= 0 && field < 2) ? fieldTypeStrings[field] : nullptr;
 }
 
 const char **MyTaskChunkDescriptor::getFieldPropertyNames(int field) const
@@ -447,7 +428,6 @@ std::string MyTaskChunkDescriptor::getFieldValueAsString(omnetpp::any_ptr object
     MyTaskChunk *pp = omnetpp::fromAnyPtr<MyTaskChunk>(object); (void)pp;
     switch (field) {
         case FIELD_RequiredCPUCycles: return long2string(pp->getRequiredCPUCycles());
-        case FIELD_DeadlineLatency: return double2string(pp->getDeadlineLatency());
         case FIELD_creationTime: return simtime2string(pp->getCreationTime());
         default: return "";
     }
@@ -466,7 +446,6 @@ void MyTaskChunkDescriptor::setFieldValueAsString(omnetpp::any_ptr object, int f
     MyTaskChunk *pp = omnetpp::fromAnyPtr<MyTaskChunk>(object); (void)pp;
     switch (field) {
         case FIELD_RequiredCPUCycles: pp->setRequiredCPUCycles(string2long(value)); break;
-        case FIELD_DeadlineLatency: pp->setDeadlineLatency(string2double(value)); break;
         case FIELD_creationTime: pp->setCreationTime(string2simtime(value)); break;
         default: throw omnetpp::cRuntimeError("Cannot set field %d of class 'MyTaskChunk'", field);
     }
@@ -483,7 +462,6 @@ omnetpp::cValue MyTaskChunkDescriptor::getFieldValue(omnetpp::any_ptr object, in
     MyTaskChunk *pp = omnetpp::fromAnyPtr<MyTaskChunk>(object); (void)pp;
     switch (field) {
         case FIELD_RequiredCPUCycles: return pp->getRequiredCPUCycles();
-        case FIELD_DeadlineLatency: return pp->getDeadlineLatency();
         case FIELD_creationTime: return pp->getCreationTime().dbl();
         default: throw omnetpp::cRuntimeError("Cannot return field %d of class 'MyTaskChunk' as cValue -- field index out of range?", field);
     }
@@ -502,7 +480,6 @@ void MyTaskChunkDescriptor::setFieldValue(omnetpp::any_ptr object, int field, in
     MyTaskChunk *pp = omnetpp::fromAnyPtr<MyTaskChunk>(object); (void)pp;
     switch (field) {
         case FIELD_RequiredCPUCycles: pp->setRequiredCPUCycles(omnetpp::checked_int_cast<int>(value.intValue())); break;
-        case FIELD_DeadlineLatency: pp->setDeadlineLatency(value.doubleValue()); break;
         case FIELD_creationTime: pp->setCreationTime(value.doubleValue()); break;
         default: throw omnetpp::cRuntimeError("Cannot set field %d of class 'MyTaskChunk'", field);
     }

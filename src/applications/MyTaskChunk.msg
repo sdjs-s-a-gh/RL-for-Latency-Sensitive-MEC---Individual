@@ -18,9 +18,7 @@ import inet.common.packet.chunk.Chunk;
 namespace inet;  
   
 class MyTaskChunk extends FieldsChunk {  
-    int RequiredCPUCycles;  
-    double DeadlineLatency;
-    
+    int RequiredCPUCycles;
     simtime_t creationTime;
     
 }

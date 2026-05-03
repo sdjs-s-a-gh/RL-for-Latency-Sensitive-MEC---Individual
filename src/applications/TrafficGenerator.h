@@ -31,8 +31,6 @@ class TrafficGenerator : public UdpBasicApp
     // Parameters
     double minRequiredCPUCycles = -1; // in MHz
     double maxRequiredCPUCycles = -1; // in MHz
-    double minDeadlineLatency = -1; // in ms
-    double maxDeadlineLatency = -1; // in ms
 
     virtual void sendPacket() override;
     virtual void processStart() override;

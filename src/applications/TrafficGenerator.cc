@@ -39,13 +39,7 @@ void TrafficGenerator::sendPacket()
             par("maxRequiredCPUCycles").doubleValue()
             );
 
-    double deadlineLatency = uniform(
-            par("minDeadlineLatency").doubleValue(),
-            par("maxDeadlineLatency").doubleValue()
-            );
-
     payload->setRequiredCPUCycles(cpuCycles);
-    payload->setDeadlineLatency(deadlineLatency);
     payload->setCreationTime(simTime());
 
     EV << "The sim time is: " << simTime() << endl;

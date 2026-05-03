@@ -15,12 +15,12 @@
 
 package myprojectandtutorial.devices;
 
-import inet.node.inet.WirelessHost;
+import inet.node.inet.StandardHost;
 
 //
 // TODO auto-generated module
 //
-module CloudServer extends WirelessHost
+module CloudServer extends StandardHost
 {
     // Doesn't add any new code; just changes the icon to a server
     parameters:
