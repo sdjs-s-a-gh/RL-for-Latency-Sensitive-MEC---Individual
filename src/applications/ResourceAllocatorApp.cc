@@ -422,7 +422,6 @@ void ResourceAllocatorApp::updateQueue()
         EV << "Is the Queue Empty? " << queue.isEmpty() << endl;
         EV << "Current Capacity: " << currentCapacity << endl;
 
-        // TODO: Need to fix the queue as it will eventually break if there is nothing in it.
         // Keep processing tasks while there is enough resources remaining.
         while (!queue.isEmpty() && queueHead->allocatedCPUFrequency <= currentCapacity) {
             processTask(queueHead);
@@ -564,7 +563,6 @@ void ResourceAllocatorApp::handleCrashOperation(LifecycleOperation *operation)
  */
 void ResourceAllocatorApp::finish()
 {
-    // TODO: Tidy this subroutine up.
     EV << "Tasks Processed: "<< tasksProcessed << endl;
 
     if (tasksProcessed == episodeLength) {
@@ -574,6 +572,7 @@ void ResourceAllocatorApp::finish()
                 py::exec("import sys; sys.stdout.flush(); sys.stderr.flush()");
 
                 // Tell the Resource Allocator to update as the episode has ended.
+                // Currently, this method is commented out to evaluate the trained agent.
                 //agent.attr("update_and_save")();
 
                 EV << "The agent should have saved by now." << endl;

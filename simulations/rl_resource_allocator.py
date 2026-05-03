@@ -13,6 +13,19 @@ from rl_PolicyNetwork import PolicyNetwork
 
 class PPO:
     def __init__(self, state_dimensions: int, action_dimension: int):
+        """
+            Contructor for the PPO agent.
+            
+            This constructor is responsible for creating the PPO agent
+            with both a Policy (Actor) and Value (Critic) networks. Each network
+            is either created from scratch or loaded from a previously trained
+            version of the agent.
+            
+            @param state_dimensions (int): The number of state variables the PPO agent
+            will observed at a given time.
+            @param action_dimension (int): The number of actions the PPO agent is capable
+            of making. 
+        """
         # Collect information from the environment
         self.state_dimensions = state_dimensions
         self.action_dimensions = action_dimension
@@ -56,8 +69,6 @@ class PPO:
         self.mini_batch_size = 64
         self.entropy_coefficient = 0.001
         
-        #print(f"mini-batch size: {self.mini_batch_size}; entropy coefficient: {self.entropy_coefficient}")
-        #print(f"updates: {self.updates_per_iteration}; lr: {self.learning_rate}; gamma: {self.gamma}; clip: {self.clip_threshold}")
 
     def _load_networks(self) -> None:
         """
@@ -76,7 +87,23 @@ class PPO:
             " on this episode will start from scratch instead.")
 
     def get_action(self, state) -> tuple:
-        #print(f"State: {state}")
+        """
+            Returns an action sampled from the Policy (Actor) network.
+            
+            This function returns an action alongside its log probability based
+            on a given state.
+            
+            @param state (array): An array that includes the following state variables
+            in this order:
+            - Required CPU Cycles: float
+            - Communication Latency: float
+            - Resource Utilisation: float
+            - Queue Length: float
+            - Total Queue Cycles: float
+            
+            @return: tuple A tuple containing the action and its associated log probability.
+        """
+
         # Query the policy network for a mean action.
         # Create the Multivariate Normal distribution for using an action space > 1.
         distribution = self.policy_network.get_distribution(state)
@@ -183,11 +210,28 @@ class PPO:
 
     def add_trajectory(self, state: list, raw_action: float | int, log_probability: float | int, latency: float | int) -> None:
         """
-            Collects a trajectory for a single timestep in the OMNeT++
-            MEC environment and appends the data to the buffer. The
-            reward for this timestep is subsequently performed on the
-            Python-side code for a more appropriate separation of concerns. 
+            Adds a trajectory to the buffer.
+            
+            This subroutine collects a trajectory for a single timestep in the OMNeT++
+            MEC environment and appends the data to the buffer. The reward for this 
+            timestep is subsequently performed on the Python-side code for a more 
+            appropriate separation of concerns. 
+            
+            @param state (array): An array that includes the following state variables
+            in this order:
+            - Required CPU Cycles: float
+            - Communication Latency: float
+            - Resource Utilisation: float
+            - Queue Length: float
+            - Total Queue Cycles: float
+            
+            @param raw_action: The raw, unclipped action used within the OMNeT++
+            environment. This value being raw is crucial to enable the PPO agent
+            to accurately learns from its actions - since environmental clipped
+            actions will be on a completely different scale than what the agent
+            sampled from.
         """
+        # Add the trajectory to the buffer.
         self.buffer_states.append(state)
         self.buffer_actions.append([raw_action])
         self.buffer_log_probabilities.append(log_probability)
@@ -200,6 +244,11 @@ class PPO:
     def compute_reward(self, latency: float | int) -> float | int:
         """
             Calculates the reward for the outcome of a given timestep.
+            
+            @param latency: The latency experienced by the task within
+            the simulation (given in milliseconds).
+            
+            @return: float | int: The reward for timestep. 
         """
         
         latency_baseline = 1000.0
@@ -208,6 +257,13 @@ class PPO:
         return reward
 
     def compute_rewards_to_go(self, buffer_rewards: list[float | int]) -> torch.Tensor:
+        """
+            Calculates the Rewards-to-Go from the rewards gained during a training episode.
+            
+            @param buffer_rewards (list[float | int]): The rewards gained from the training episode.
+            
+            @return: Tensor: The Rewards-to-Go for the completed training episode.
+        """
         buffer_rewards_to_go = []
         
         discounted_reward = 0
