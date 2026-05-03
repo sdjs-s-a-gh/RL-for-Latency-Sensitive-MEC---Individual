@@ -14,7 +14,7 @@ from rl_PolicyNetwork import PolicyNetwork
 class PPO:
     def __init__(self, state_dimensions: int, action_dimension: int):
         """
-            Contructor for the PPO agent.
+            Constructor for the PPO agent.
             
             This constructor is responsible for creating the PPO agent
             with both a Policy (Actor) and Value (Critic) networks. Each network
@@ -115,7 +115,13 @@ class PPO:
         # Remove the computation graphs from the action and log probability when returning.
         return action.detach().numpy(), log_probability.detach()
 
-    def learn(self) -> None:      
+    def learn(self) -> None:
+        """
+            Handles PPO learning over a set number of epochs.
+            
+            This subroutine is responsible for allowing the PPO agent
+            to update both its policy and value networks.
+        """      
         # PPO Algorithm Step 3: Collect trajectories/experiences from the episode just computed.
         # Firstly, convert each component from the buffer data into tensors for training.
         buffer_states = torch.tensor(np.array(self.buffer_states), dtype=torch.float)
@@ -123,13 +129,10 @@ class PPO:
         buffer_log_probabilities = torch.tensor(np.array(self.buffer_log_probabilities), dtype=torch.float)
 
         self.logger["buffer_rewards"].append(self.buffer_rewards)
-        #print(self.buffer_rewards)
 
         buffer_rewards_to_go = self.compute_rewards_to_go(self.buffer_rewards)
 
         buffer_rewards_to_go = torch.tensor(np.array(buffer_rewards_to_go), dtype=torch.float)
-
-        #batch_states, batch_actions, batch_log_probabilities, batch_rewards_to_go, batch_episode_lengths = self.rollout()
 
         # Query the value/critic network for a value V for each state in the buffer.
         value = self.value_network(buffer_states).squeeze()
@@ -145,15 +148,6 @@ class PPO:
         indices = np.arange(batch_size)
         
         for epoch in range(self.updates_per_episode):
-            # Anneal the learning rate to improve convergence to avoid being either too quick or too slow.
-            #fraction_completed: float | int = (timesteps_so_far - 1.0) / total_timesteps    # -1.0 is used as the timesteps have +1 added in the rollout() function.
-            #print(f"Fraction Completed: {fraction_completed}; Timesteps so far: {timesteps_so_far}")
-            # TODO: Also, I don't think this would be possible for me as the programme wouldn't track overall timesteps.
-            #new_learning_rate = self.learning_rate * (1.0 - fraction_completed)
-            #new_learning_rate = max(new_learning_rate, 0.0)
-            #self.policy_optimiser.param_groups[0]["lr"] = new_learning_rate
-            #self.value_optimiser.param_groups[0]["lr"] = new_learning_rate
-
             # Randomly shuffle the trajectories for the mini-batch
             np.random.shuffle(indices)
             for mini_batch in range(0, batch_size, self.mini_batch_size):
@@ -168,12 +162,9 @@ class PPO:
 
                 # Calculate current log probabilities (pi_theta(a_t | s_t)) for this current epoch.
                 # The old log probabilities are stored in the variable batch_log_probabilities.
-                #print(f"Batch States Size: {mini_batch_states.size()}; Batch Actions Size: {mini_batch_actions.size()}")
-                #raise ValueError(f"Batch States Size: {mini_batch_states.sum(-1).size()}; Batch Actions Size: {mini_batch_actions.size()}")
                 current_log_probabilities, entropy_loss = self.evaluate(mini_batch_states, mini_batch_actions)
 
                 # Calculate the Value and Current Log probabilities for the current epoch.
-                # TODO: Probably move this value into the same evaluate function as the current log probabilities uses.
                 value = self.value_network(mini_batch_states).squeeze()
 
                 # Calculate the ratios for the surrogate losses.
@@ -225,11 +216,17 @@ class PPO:
             - Queue Length: float
             - Total Queue Cycles: float
             
-            @param raw_action: The raw, unclipped action used within the OMNeT++
+            @param raw_action (float | int): The raw, unclipped action used within the OMNeT++
             environment. This value being raw is crucial to enable the PPO agent
             to accurately learns from its actions - since environmental clipped
             actions will be on a completely different scale than what the agent
             sampled from.
+            
+            @param log_probability (float | int): The log probability of the associated
+            action.
+            
+            @param latency: The latency experienced by the task within
+            the simulation (given in milliseconds).
         """
         # Add the trajectory to the buffer.
         self.buffer_states.append(state)
