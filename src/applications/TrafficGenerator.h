@@ -30,7 +30,7 @@ using namespace inet;
  * is wrapped within a UDP packet given by the inherited UdpBasicApp class.
  * Each task contains a randomly generated number of CPU cycles required
  * for processing, which is bounded by a lower and upper value set within
- *  the omnetpp.ini file.
+ * the omnetpp.ini file.
  *
  */
 class TrafficGenerator : public UdpBasicApp
