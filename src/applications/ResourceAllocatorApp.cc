@@ -27,6 +27,16 @@ static py::object agent;
 
 Define_Module(ResourceAllocatorApp);
 
+/**
+ * Sets the fundamental settings for the simulation to proceed.
+ *
+ * This subroutines handles setting the MEC server's specifications and
+ * ports to enable communication and resource allocation to occur. Logging
+ * statistics also are initialised for the evaluation metrics to be tracked.
+ * Lastly, the subroutine additionally handles creating the Python interpreter
+ * should the user choose PPO as the allocation algorithm.
+ *
+ */
 void ResourceAllocatorApp::initialize(int stage)
 {
     ApplicationBase::initialize(stage);
@@ -49,13 +59,11 @@ void ResourceAllocatorApp::initialize(int stage)
                 guard = new py::scoped_interpreter();  // Start the interpreter
             }
 
-            // Import the Python File
-
+            // Prior to importing the Python file, the system must be setup to be able to view the file.
             py::module_ sys = py::module_::import("sys");
-            // TODO: Remove these comments : 1. Force the interpreter to look at your VENV's libraries
             sys.attr("path").attr("append")("/home/opp_env/.venv/lib/python3.12/site-packages");
 
-            // 2. Also keep the current directory for your local script
+            // Append the current directory (which to Pybind is "simulations") to access the local script.
             sys.attr("path").attr("append")(".");
 
             py::module_ rl_mod = py::module_::import("rl_resource_allocator");
