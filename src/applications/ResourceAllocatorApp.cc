@@ -25,11 +25,6 @@ namespace py = pybind11;
 static py::scoped_interpreter* guard = nullptr;
 static py::object agent;
 
-//#include <pybind11/embed.h>
-// located at: home\opp_env\.venv\lib\python3.12 or /home/opp_env/.venv/lib/python3.12/site-packages
-// stable: -I/usr/include/python3.12 -I/home/opp_env/.venv/lib/python3.12/site-packages/pybind11/include
-// 3rd try: -L/nix/store/8w718rm43x7z73xhw9d6vh8s4snrq67h-python3-3.12.10/lib -lpython3.12 -ldl -L/nix/store/qizipyz9y17nr4w4gmxvwd3x4k0bp2rh-libxcrypt-4.4.38/lib -lm
-
 Define_Module(ResourceAllocatorApp);
 
 void ResourceAllocatorApp::initialize(int stage)
@@ -37,7 +32,7 @@ void ResourceAllocatorApp::initialize(int stage)
     ApplicationBase::initialize(stage);
     // Without binding sockets, this app will only return a ICMP error that
     // indicates the incoming packet cannot reach the required socket - as the
-    // app is yet to be on a socket.
+    // application is yet to be on a socket.
 
     maxCPUCapacity = par("maxCPUCapacity").intValue(); // Scale from MHz to normal Hz.
     currentCapacity = maxCPUCapacity;
