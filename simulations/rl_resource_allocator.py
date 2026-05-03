@@ -22,7 +22,7 @@ class PPO:
             version of the agent.
             
             @param state_dimensions (int): The number of state variables the PPO agent
-            will observed at a given time.
+            will observe at a given time.
             @param action_dimension (int): The number of actions the PPO agent is capable
             of making. 
         """
@@ -335,7 +335,7 @@ class PPO:
         average_value_loss = np.mean([losses.float().mean() for losses in self.logger["value_losses"]])
         average_entropy_loss = np.mean([losses.detach().float().mean() for losses in self.logger["entropy_losses"]])
 
-        # Round to x number of decimal places for more intuitive and intepretable logging messages.
+        # Round to 5 number of decimal places for more intuitive and intepretable logging messages.
         average_episode_rewards = str(round(average_episode_rewards, 5))
         minimum_episode_rewards = str(round(minimum_episode_rewards, 5))
         maximum_episode_rewards = str(round(maximum_episode_rewards, 5))
