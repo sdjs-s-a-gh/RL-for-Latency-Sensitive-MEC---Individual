@@ -18,11 +18,15 @@ package myprojectandtutorial.devices;
 import inet.node.inet.StandardHost;
 
 //
-// TODO auto-generated module
+// Cloud Server device module.
+//
+// This module represents the distant cloud server used within the
+// the simulation. There is no new code added or behaviour added
+// here; instead, the only change is using a server icon to represent
+// the device.
 //
 module CloudServer extends StandardHost
 {
-    // Doesn't add any new code; just changes the icon to a server
     parameters:
         @display("i=device/server"); // Change the icon to a server
 }

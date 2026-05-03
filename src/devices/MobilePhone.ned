@@ -18,12 +18,15 @@ package myprojectandtutorial.devices;
 import inet.node.inet.WirelessHost;
 
 //
-// TODO auto-generated module
-// Could also be a mobile device like a laptop as well.
+// Mobile Phone device module.
+//
+// This module represents a mobile phone used within the simulation
+// to generate tasks. There is no new code added or behaviour added
+// here; instead, the only change is using a phone icon to represent
+// the device.
 //
 module MobilePhone extends WirelessHost
 {
-    // Doesn't add any new code; just changes the icon to a server
     parameters:
-        @display("i=misc/smartphone"); // Change the icon to a server
+        @display("i=misc/smartphone"); // Change the icon to a phone.
 }
