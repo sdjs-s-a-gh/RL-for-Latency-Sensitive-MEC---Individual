@@ -365,17 +365,12 @@ void ResourceAllocatorApp::endTaskExecution(cMessage *msg)
         double latency = completedTask->latency.dbl() * 1000;
         double resourceUtilisation = getResourceUtilisation();
 
-        // Get the current queue utilisation to punish for being too big and offloading tasks.
-        // TODO: Create a function to return the queue utilisation considering I already use this when
-        // getting an action from the PPO agent.
-        double queueUtilisation = (double) queue.getLength() / (double) maxQueueLength;
-
         EV << "Latency: " << latency << "; State: "  << "; Action: " << action << "; Log Prob: " << logProbability << endl;
         EV << "Energy Consumption: " << energyConsumption << endl;
 
         // Send the details of the trajectory to the PPO agent.
         try {
-            agent.attr("add_trajectory")(state, action, logProbability, latency, energyConsumption, queueUtilisation);
+            agent.attr("add_trajectory")(state, action, logProbability, latency);
 
         } catch (py::error_already_set &e){
             throw cRuntimeError("Python Error: %s", e.what());
@@ -564,8 +559,8 @@ void ResourceAllocatorApp::handleCrashOperation(LifecycleOperation *operation)
  *
  * This subroutine is triggered whenever a simulation ends. Namely, the method alters the inherited
  * behaviour by calling the PPO agent to update should the simulation end properly before subsequently
- * shutting down the interpreter agent. This last part is important since major errors occur as the
- * simulation cannot delete the interpreter properly otherwise. TODO: alter this last phrasing.
+ * manually shutting down the interpreter. This last part is important since major errors occur because
+ * the simulation otherwise attempts to delete the agent object that is already cleared out of memory.
  */
 void ResourceAllocatorApp::finish()
 {
@@ -578,7 +573,7 @@ void ResourceAllocatorApp::finish()
                 // Flush the print statements out since they don't carry over here automatically anymore.
                 py::exec("import sys; sys.stdout.flush(); sys.stderr.flush()");
 
-                 // Tell the Resource Allocator to update as the episode has ended.
+                // Tell the Resource Allocator to update as the episode has ended.
                 //agent.attr("update_and_save")();
 
                 EV << "The agent should have saved by now." << endl;
