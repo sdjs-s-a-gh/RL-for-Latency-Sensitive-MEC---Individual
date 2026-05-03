@@ -17,7 +17,13 @@ package myprojectandtutorial.applications;
 import inet.applications.udpapp.UdpBasicApp;
 
 //
-// TODO auto-generated module
+// Traffic Generator module.
+//
+// This class is responsible for generating all the network traffic used
+// within the simulation. Each packet sent is a modelled as a "task" that
+// is wrapped within a UDP packet. Each task contains a randomly generated number
+// of CPU cycles required for process, which is bounded by a lower and upper value
+// set within the omnetpp.ini file.
 //
 simple TrafficGenerator extends UdpBasicApp
 {
