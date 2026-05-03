@@ -23,7 +23,15 @@ using namespace omnetpp;
 using namespace inet;
 
 /**
- * TODO - Generated class
+ * Traffic Generator class.
+ *
+ * This class is responsible for generating all the network traffic used
+ * within the simulation. Each packet sent is a modelled as a "task" and
+ * is wrapped within a UDP packet given by the inherited UdpBasicApp class.
+ * Each task contains a randomly generated number of CPU cycles required
+ * for processing, which is bounded by a lower and upper value set within
+ *  the omnetpp.ini file.
+ *
  */
 class TrafficGenerator : public UdpBasicApp
 {
