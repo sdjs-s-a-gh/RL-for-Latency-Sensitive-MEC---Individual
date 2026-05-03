@@ -278,10 +278,19 @@ class PPO:
         return buffer_rewards_to_go
     
     def evaluate(self, batch_states, batch_actions) -> tuple:
+        """
+            Returns the log probabilies and entropy of the batched actions
+            using the most recent Policy (Actor) network.
+            
+            @param batch_states: The batched observed states from completed episode
+            - used to get the Policy's distribution.
+            @param batch_actions: The batched actions from the completed episode - 
+            used to calculate the log probabilities and the entropy.
+            
+            @return: tuple A tuple containing the log probability and entropy.
+        """
         # Calculate the most recent log probabilities of the batched actions using the
         # most recent actor network.
-        #print(f"Batch States Size: {batch_states.size()}; Batch Actions Size: {batch_actions.size()}")
-        #raise ValueError(f"Batch States Size: {batch_states.size()}; Batch Actions Size: {batch_actions.size()}")
         distribution = self.policy_network.get_distribution(batch_states)
         #print(f"Batch States Size: {batch_states.size()}; Batch Actions Size: {batch_actions.size()}")
         log_probability = distribution.log_prob(batch_actions)
@@ -305,6 +314,14 @@ class PPO:
         torch.save(self.value_network.state_dict(), "./ppo_value.pth")
 
     def _log_summary(self) -> None:
+        """
+            Prints a summary of the key statistics from the episode's training.
+            
+            This subroutine provides and prints a summary of key statistics used
+            both on-screen and into a CSV titled "1_OptimisedPPOTrainingData.csv".
+            The purpose of this method is to track the PPO agent's training over 
+            time to ensure it actually learning.
+        """
         delta_t = self.logger["delta_t"]
         self.logger["delta_t"] = time.time_ns()
         delta_t = (self.logger["delta_t"] - delta_t) / 1e9
