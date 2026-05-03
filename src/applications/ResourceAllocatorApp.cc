@@ -34,7 +34,7 @@ void ResourceAllocatorApp::initialize(int stage)
     // indicates the incoming packet cannot reach the required socket - as the
     // application is yet to be on a socket.
 
-    maxCPUCapacity = par("maxCPUCapacity").intValue(); // Scale from MHz to normal Hz.
+    maxCPUCapacity = par("maxCPUCapacity").intValue();
     currentCapacity = maxCPUCapacity;
     resourceAllocatorAlgorithm = par("resourceAllocatorAlgorithm");
     episodeLength = par("episodeLength");

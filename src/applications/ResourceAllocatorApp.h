@@ -86,8 +86,8 @@ class ResourceAllocatorApp : public ApplicationBase, UdpSocket::ICallback
 {
   protected:
     // Resource Allocation
-    int64_t maxCPUCapacity = 10000; // The maximum capacity of the MEC server (measured in MHz to avoid overflow errors).
-    int64_t currentCapacity = 0; // The capacity occupied of the MEC server at a given time (measured in MHz).
+    int maxCPUCapacity = 10000; // The maximum capacity of the MEC server (measured in MHz to avoid overflow errors).
+    int currentCapacity = 0; // The capacity occupied of the MEC server at a given time (measured in MHz).
     cQueue queue; // The FIFO queue used to hold tasks waiting for execution.
     int maxQueueLength = 50; // The maximum length of the FIFO queue.
     int resourceAllocatorAlgorithm = 0; // The algorithm to be used for allocating CPU frequency.
