@@ -405,13 +405,12 @@ void ResourceAllocatorApp::endTaskExecution(cMessage *msg)
 }
 
 /**
- * A subroutine that checks whether the next task in the queue can be processed.
- *
  * Handles processing the next task in the queue.
  *
  * This subroutine checks whether there is enough CPU frequency avaiable to process
  * the task at the head of the queue. If there is sufficient space, each task at the head
- * of the queue will be sent for processing. Otherwise, the simulation will continue on.
+ * of the queue will be sent for processing until capacity runs out. Otherwise, the simulation
+ * will continue on.
  */
 void ResourceAllocatorApp::updateQueue()
 {
@@ -431,6 +430,7 @@ void ResourceAllocatorApp::updateQueue()
             // Only now remove (dequeue) the task from the queue once there are enough resources.
             queue.pop();
             }
+
         EV << "The length of the queue is: " << queue.getLength() << endl;
         emit(queueLengthSignal, queue.getLength());
         EV << "Resource Utilisation: " << getResourceUtilisation() << endl;
