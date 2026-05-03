@@ -37,8 +37,8 @@ class TrafficGenerator : public UdpBasicApp
 {
   protected:
     // Parameters
-    double minRequiredCPUCycles = -1; // in MHz
-    double maxRequiredCPUCycles = -1; // in MHz
+    double minRequiredCPUCycles = -1; // in MCycles
+    double maxRequiredCPUCycles = -1; // in MCycles
 
     virtual void sendPacket() override;
     virtual void processStart() override;

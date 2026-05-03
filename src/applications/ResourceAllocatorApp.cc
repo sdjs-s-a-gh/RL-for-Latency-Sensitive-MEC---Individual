@@ -40,10 +40,6 @@ Define_Module(ResourceAllocatorApp);
 void ResourceAllocatorApp::initialize(int stage)
 {
     ApplicationBase::initialize(stage);
-    // Without binding sockets, this app will only return a ICMP error that
-    // indicates the incoming packet cannot reach the required socket - as the
-    // application is yet to be on a socket.
-
     maxCPUCapacity = par("maxCPUCapacity").intValue();
     currentCapacity = maxCPUCapacity;
     resourceAllocatorAlgorithm = par("resourceAllocatorAlgorithm");
@@ -61,11 +57,14 @@ void ResourceAllocatorApp::initialize(int stage)
 
             // Prior to importing the Python file, the system must be setup to be able to view the file.
             py::module_ sys = py::module_::import("sys");
+
+            // Add the libraries used in the Python-side code so that PyTorch (for instance) may be accessed.
             sys.attr("path").attr("append")("/home/opp_env/.venv/lib/python3.12/site-packages");
 
-            // Append the current directory (which to Pybind is "simulations") to access the local script.
+            // Append the current directory (which to Pybind is "simulations") to be able to access the local script.
             sys.attr("path").attr("append")(".");
 
+            // Finally, import the PyTorch resource allocator.
             py::module_ rl_mod = py::module_::import("rl_resource_allocator");
 
             int stateSpaceDimensions = 5;
@@ -95,6 +94,7 @@ void ResourceAllocatorApp::initialize(int stage)
         destPort = par("destPort");
         destAddressStr = par("destAddress").stdstringValue();
 
+        // Setup connection to the cloud server.
         EV << "Dest Address:" << destAddressStr << endl;
         L3Address result;
         L3AddressResolver().tryResolve(destAddressStr.c_str(), result);
@@ -104,6 +104,9 @@ void ResourceAllocatorApp::initialize(int stage)
 
         EV << "My address: " << L3AddressResolver().resolve(getParentModule()->getFullPath().c_str()) << endl;
 
+        // Without binding sockets, this app will only return a ICMP error that
+        // indicates the incoming packet cannot reach the required socket - as the
+        // application is yet to be on a socket.
         socket.setOutputGate(gate("socketOut"));
         socket.bind(localPort);
         socket.setCallback(this);
@@ -111,6 +114,16 @@ void ResourceAllocatorApp::initialize(int stage)
     }
 }
 
+/**
+ * Receives and handles incoming messages to the MEC server.
+ *
+ * This subroutine routes an incoming message to another function for respective processing.
+ * Once those functions have computed, the queue is then updated to determine whether the next
+ * task can be processed.
+ *
+ * However, an erroneous message (caused by unknown means) will result in the simulation terminating
+ * immediately.
+ */
 void ResourceAllocatorApp::handleMessageWhenUp(cMessage *msg)
 {
     // If a task has completed.
@@ -131,14 +144,19 @@ void ResourceAllocatorApp::handleMessageWhenUp(cMessage *msg)
 }
 
 /**
- * Allocates CPU cycles to the task passed as an argument.
- * The subroutine works by first routing the chosen allocation method to
- * its corresponding function.
+ * Allocates CPU Frequency to a particular task.
+ *
+ * This subroutine extracts a task's required CPU cycles for processing and routes
+ * the value to the user's chosen allocation algorithm. The received CPU frequency allocation
+ * is then assigned to the task along with its execution time.
+ *
+ * Should the user have chosen an invalid allocator algorithm, the simulation will terminate and
+ * an error will be presented.
  */
 void ResourceAllocatorApp::allocateResources(Task *task)
 {
+    // Extract CPU cycle from the task.
     int requiredCycles = task->requiredCPUCycles;
-    double communicationLatency = (task->communicationDelay.dbl() * 1000); // Convert to milliseconds
 
     int cpuCyclesToAllocate = 0;
     if (resourceAllocatorAlgorithm == 0) {
@@ -153,23 +171,26 @@ void ResourceAllocatorApp::allocateResources(Task *task)
 
     task->allocatedCPUFrequency = cpuCyclesToAllocate;
     task->executionTime = getTimeToExecute(task->requiredCPUCycles, cpuCyclesToAllocate);
-
 }
 
 /**
- * Returns the allocated CPU frequency of a given task based off a static ruleset. The algorithm achieves this by
- * allocating the incoming task whatever cycles it needs.
+ * Returns the allocated CPU frequency of a given task based off a static ruleset.
+ *
+ * This function allocates an incoming task the equivalent frequency as the CPU Cycles required
+ * for processing. For instance, a task that requires 100 Mcycles will be given 100MHz frequency.
  */
 int ResourceAllocatorApp::staticAllocation(int requiredCycles)
 {
-    // TODO: At the minute, the allocator just gives the incoming task whatever cycles it needs.
+    // The allocator just gives the incoming task the equivalent frequency as the cycles it requires.
     return requiredCycles;
 }
 
 /**
- * Returns a random CPU frequency for a given task completely irrespective of the size (CPU cycles are needed)
- * to process the task. The number returned will be between 1% and 100% of the CPU's max capacity to avoid
- * some tasks taking forever.
+ * Returns a random CPU frequency for a given task completely irrespective of the CPU cycles required
+ * to process the task.
+ *
+ * This function allocates an incoming task a random value between 1% and 100% of the CPU's max capacity
+ * (to avoid some tasks taking forever).
  */
 int ResourceAllocatorApp::randomAllocation()
 {
@@ -180,18 +201,24 @@ int ResourceAllocatorApp::randomAllocation()
 }
 
 /**
- * Returns the allocated CPU frequency for a given task using the Reinforcement Learning method
- * of PPO.
+ * Returns the allocated CPU frequency for a given task using the PPO Reinforcement Learning method.
+ *
+ * This function allocates an incoming task by communicating with a PPO algorithm in Python using Pybind.
+ * The frequency allocation returned is based on the current observed state of the simulation at that time and
+ * PPO's learned policy.
+ *
+ * If a Python or Pybind issue occurs, the simulation will terminate and a message will be shown to the user.
  */
 int ResourceAllocatorApp::PPOAllocation(Task *task)
 {
-    // Get State and normalise to improve learning stability. // TODO
+    // Get State and normalise to improve learning stability.
     double requiredCycles = task->requiredCPUCycles / (700.0); // 700 = Max CPU cycles set in ini.
     double communicationLatency = (task->communicationDelay.dbl() * 1000) / 50.0; // Convert to milliseconds
     double resourceUtilisation = getResourceUtilisation();
     double queueLength = (double) queue.getLength() / (double) maxQueueLength;
     double totalQueueCycles = (double) getTotalCyclesInQueue() / (700.0 * (double) maxQueueLength);
 
+    // Combine the state into a vector, which Pybind will convert into a Python list.
     std::vector<double>state = {
             requiredCycles,
             communicationLatency,
@@ -213,7 +240,7 @@ int ResourceAllocatorApp::PPOAllocation(Task *task)
 
         EV << "Action: " << action << "; Log Prob: " << logProbability << "; Raw Action: " << rawAction << endl;
 
-        int allocatedCPUCycles = action * maxCPUCapacity; // TODO: Will need to round to the nearest int.
+        int allocatedCPUCycles = action * maxCPUCapacity;
 
         EV << "Max CPU Capacity: " << maxCPUCapacity << endl;
 
@@ -232,17 +259,19 @@ int ResourceAllocatorApp::PPOAllocation(Task *task)
 }
 
 /**
- * Returns the amount of time in seconds it will take to
- * execute a task of a certain size based on the capacity of
- * the edge server.
+ * Returns the amount of time (in seconds) executing a task of a certain size will take based on the capacity of
+ * the MEC server.
+ *
+ * This function handles the execution model used in the simulation. The equation used to calculate the execution
+ * time is given in section 3.1 of the dissertation.
  */
 double ResourceAllocatorApp::getTimeToExecute(double cpuCyclesRequired, double allocatedCPUFrequency)
 {
-    return cpuCyclesRequired / allocatedCPUFrequency; //maxCPUCapacity, allocatedCPUFrequency
+    return cpuCyclesRequired / allocatedCPUFrequency;
 }
 
 /**
- * Returns the current resource utilisation of the edge server - between 0 and 1.
+ * Returns the current resource utilisation of the MEC server as a ratio.
  */
 double ResourceAllocatorApp::getResourceUtilisation()
 {
@@ -250,7 +279,10 @@ double ResourceAllocatorApp::getResourceUtilisation()
 }
 
 /**
- * Returns the number of CPU cycles needing to be processed in the current queue.
+ * Returns the number of CPU cycles waiting to be processed in the current queue.
+ *
+ * This function iterates through each task in the queue and returns the sum of
+ * all required CPU cycles waiting to be processed.
  */
 int ResourceAllocatorApp::getTotalCyclesInQueue()
 {
@@ -267,11 +299,13 @@ int ResourceAllocatorApp::getTotalCyclesInQueue()
 }
 
 /**
- * The subroutine that processes the input task.
+ * "Processes" a task in the simulation.
  *
- * The subroutine takes the task to be executed on the CPU
- * and subsequently deallocates the CPU cycles required from
- * the current capacity of the edge server.
+ * As literal task processing does not occur in the simulation, this handles the appropriate
+ * actions that are required to mimic task execution. Firstly, a self-message is scheduled to
+ * a arrive back at the MEC when a task is set to be finished. Secondly, during this time,
+ * the current capacity of the MEC server is decreased by the CPU cycles of a task to remove
+ * available resources.
  */
 void ResourceAllocatorApp::processTask(Task *task)
 {
@@ -288,6 +322,8 @@ void ResourceAllocatorApp::processTask(Task *task)
     EV << "Processing Task. Current Capacity: " << currentCapacity << endl;
     EV << "That will take " << task->executionTime << " seconds. According to the simulator, that will be at "
             << SIMTIME_STR(scheduleTimeTotal) << ", which is at " << scheduleTimeInMS << "ms." << endl;
+
+    // Increment the number of tasks currently being processed for debugging statistics.
     tasksProcessing++;
     EV << "Tasks Currently Processing: " << tasksProcessing << endl;
 }
@@ -295,6 +331,17 @@ void ResourceAllocatorApp::processTask(Task *task)
 /**
  * A subroutine that finishes the execution of a task, freeing-up
  * CPU space.
+ *
+ * Finishes the execution of a task in the simulation.
+ *
+ * This subroutine is responsible for handling the self-messages used to indicate
+ * the end of a task's execution. The subroutine includes calculating a task's energy consumption
+ * before finalising all the evaluation metrics.
+ *
+ * If the PPO allocation algoriothm has been chosen by the user, the trajectory of a task (its lifecycle)
+ * is sent to the agent to inform later training. The simulation will additionally terminate if the tasks
+ * processed reaches the user-defined training episode lengths.
+ *
  */
 void ResourceAllocatorApp::endTaskExecution(cMessage *msg)
 {
@@ -364,6 +411,12 @@ void ResourceAllocatorApp::endTaskExecution(cMessage *msg)
 
 /**
  * A subroutine that checks whether the next task in the queue can be processed.
+ *
+ * Handles processing the next task in the queue.
+ *
+ * This subroutine checks whether there is enough CPU frequency avaiable to process
+ * the task at the head of the queue. If there is sufficient space, each task at the head
+ * of the queue will be sent for processing. Otherwise, the simulation will continue on.
  */
 void ResourceAllocatorApp::updateQueue()
 {
@@ -396,6 +449,18 @@ void ResourceAllocatorApp::updateQueue()
  * =========================================================================
  * From UdpSocket::ICallback
  */
+
+/*
+ * Handles each packet that arrives on the MEC server.
+ *
+ * This subroutine is indirectly called by handleMessageWhenUp and is responsible
+ * for the routing a task throughout the first part of its lifecyle in the
+ * simulation. This journey firsly included offloading a tasks to the cloud server
+ * should the queue be at capacity. Otherwise, they are allocated a CPU frequency
+ * by whichever algorithm is selected by the user and subsequently added to the queue.
+ * The handleMessageWhenUp() subroutine then checks the queue to determine whether
+ * the task(s) at the head can be processed.
+ */
 void ResourceAllocatorApp::socketDataArrived(UdpSocket *socket, Packet *packet)
 {
     packetsReceived++;
@@ -403,18 +468,21 @@ void ResourceAllocatorApp::socketDataArrived(UdpSocket *socket, Packet *packet)
     EV << "========"<< endl << "socketDataArrived" << endl;
     EV << "Packet received: " << packet->getName() << ", size: " << packet->getByteLength() << " bytes" << endl;
 
+    // Extract the CPU cycles from the packet.
     auto taskRequirements =  packet->peekAtFront<MyTaskChunk>();
     auto cpuCycles = taskRequirements->getRequiredCPUCycles();
 
     EV << "That was Packet " << packetsReceived << ". Required CPU Cycles: " << cpuCycles << endl;
 
-    // TODO:
-    // If the queue is over 50 tasks long, delete/drop the incoming task.
-    if (queue.getLength() >= 50) {
+    // If the queue is equal to its maximum length, delete/drop the incoming task.
+    if (queue.getLength() >= maxQueueLength) {
         EV << "Queue is too big. Dropped Task." << endl;
 
         // Copy the packet as the original is destroyed at the end of the parent subroutine.
         Packet *copy = packet->dup();
+
+        // Send the packet to the cloud server for external processing (which isn't done in this
+        // simulation as discussed in section 4.1.).
         sendPacket(copy);
         return;
     }
@@ -491,6 +559,14 @@ void ResourceAllocatorApp::handleCrashOperation(LifecycleOperation *operation)
 
 }
 
+/**
+ * Handle the end of a simulation.
+ *
+ * This subroutine is triggered whenever a simulation ends. Namely, the method alters the inherited
+ * behaviour by calling the PPO agent to update should the simulation end properly before subsequently
+ * shutting down the interpreter agent. This last part is important since major errors occur as the
+ * simulation cannot delete the interpreter properly otherwise. TODO: alter this last phrasing.
+ */
 void ResourceAllocatorApp::finish()
 {
     // TODO: Tidy this subroutine up.
