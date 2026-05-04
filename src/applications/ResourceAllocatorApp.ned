@@ -15,8 +15,21 @@
 
 package myprojectandtutorial.applications;
 import inet.applications.contract.IApp;
+
 //
-// TODO auto-generated module
+// Resource Allocator application.
+//
+// This module acts as an application and is responsible for handling
+// the allocation of MEC resources (CPU frequency) within the simulation.
+//
+// The module requires a total of 7 parameters in order to function://
+// * 3 port-realted - which are essential for packets to reach the MEC server
+// and the cloud server. <br>
+// * 2 MEC-specific - which allow different MEC configurations to be tested; <br>
+// * resourceAllocatorAlgorithm (int): The resource allocation algorithm to be used for
+// the experiment. <br>
+// * episodeLength (int): The episode length used for training the PPO algorithm - should the experiment
+// use it.
 //
 simple ResourceAllocatorApp like IApp
 {
@@ -30,7 +43,9 @@ simple ResourceAllocatorApp like IApp
 	
 	    int maxCPUCapacity = default(10000);
 	    int maxQueueLength = default(50);
+	
 	    int resourceAllocatorAlgorithm;
+	
 	    int episodeLength;
 
         @signal[latency](type=double);

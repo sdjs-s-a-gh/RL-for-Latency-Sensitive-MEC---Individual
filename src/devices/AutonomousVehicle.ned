@@ -18,11 +18,15 @@ package myprojectandtutorial.devices;
 import inet.node.inet.WirelessHost;
 
 //
-// TODO auto-generated module
+// Autonomous Vehicle device module.
+//
+// This module represents an autonomous vehicle used within the
+// the simulation. There is no new code added or behaviour added
+// here; instead, the only change is using a car icon to represent
+// the device.
 //
 module AutonomousVehicle extends WirelessHost
 {
-    // Doesn't add any new code; just changes the icon to a server
     parameters:
-        @display("i=misc/car3"); // Change the icon to a server
+        @display("i=misc/car3"); // Change the icon to a car.
 }

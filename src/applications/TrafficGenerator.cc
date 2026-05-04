@@ -21,9 +21,20 @@
 
 Define_Module(TrafficGenerator);
 
+/**
+ * Creates and sends a packet towards a specified device.
+ *
+ * This subroutine creates a UDP data packet to be sent towards
+ * the MEC server for processing. The code first calculates the
+ * task size (CPU cycles required) by sampling a random value
+ * from a uniform distribution, which is bounded by an upper and
+ * lower boundary set in the omnetpp.ini file. Additionally, the
+ * creation time of the packet is additionally recorded to later
+ * compute the task completion latency.
+ */
 void TrafficGenerator::sendPacket()
 {
-    // Create the Container to send the data (packet)
+    // Create the Container to send the data (packet).
     std::ostringstream str;
     str << packetName << "-" << numSent;
     Packet *packet = new Packet(str.str().c_str());
@@ -31,9 +42,10 @@ void TrafficGenerator::sendPacket()
     if (dontFragment)
         packet->addTag<FragmentationReq>()->setDontFragment(true);
 
-    // Create the data (Payload)
+    // Create the data (Payload).
     const auto& payload = makeShared<MyTaskChunk>();
 
+    // Sample a random value from a Uniform distribution.
     double cpuCycles = uniform(
             par("minRequiredCPUCycles").doubleValue(),
             par("maxRequiredCPUCycles").doubleValue()
@@ -56,6 +68,12 @@ void TrafficGenerator::sendPacket()
     numSent++;
 }
 
+/**
+ * Calls the sendPacket() function.
+ *
+ * This subroutine is required by the parent class (UdpBasicApp)
+ * to call the sendPacket() function specified above.
+ */
 void TrafficGenerator::processStart() {
     EV_INFO << "TrafficGenerator processStart called" << endl;
     UdpBasicApp::processStart(); // call base to schedule sending

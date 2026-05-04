@@ -35,7 +35,6 @@ import inet.node.inet.StandardHost;
 import inet.node.inet.Router;
 import inet.node.ethernet.Eth10M;
 
-//import inet.physicallayer.wireless.common.medium.RadioMedium; // Required for wireless
 
 network ResourceNetwork
 {
@@ -67,7 +66,7 @@ network ResourceNetwork
         }
         radioMedium: <default("ApskScalarRadioMedium")> like IRadioMedium {
             @display("p=62,795");
-        } // Will need to change to RadioMedium to configure bandwidth
+        }
 
         // User Layer
         mdMobilePhone[numberOfMobilePhones]: MobilePhone {

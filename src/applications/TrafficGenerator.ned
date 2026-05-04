@@ -17,7 +17,16 @@ package myprojectandtutorial.applications;
 import inet.applications.udpapp.UdpBasicApp;
 
 //
-// TODO auto-generated module
+// Traffic Generator module application.
+//
+// This module acts as an application and is attached to the class responsible
+// for generating all the network traffic used within the simulation. This application
+// is to be used by the user devices to generate tasks that will be processed by the MEC
+// server.
+//
+// Each task contains a randomly generated number of CPU cycles required
+// for processing, which is bounded by a required lower and upper value
+// that represents a CPU cycle given in MHz rather than Hz.
 //
 simple TrafficGenerator extends UdpBasicApp
 {
